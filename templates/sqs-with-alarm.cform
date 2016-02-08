@@ -1,0 +1,134 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Build an SQS Queue with Policy and CloudWatch Alarm",
+    "Parameters": {
+        "AlarmEmail": {
+            "Default": "nobody@amazon.com",
+            "Description": "Email address to notify if operational problems arise",
+            "Type": "String"
+        },
+        "QueueName": {
+            "Default": "SampleQueue",
+            "Description": "Name of the SQS queue",
+            "Type": "String"
+        },
+        "QueueDepth": {
+            "Default": "100",
+            "Description": "Sum of the SQS queue messages to alert at",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "Queue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+                "QueueName": {
+                    "Ref": "QueueName"
+                }
+            }
+        },
+        "QueuePolicy": {
+            "DependsOn": "Queue",
+            "Type": "AWS::SQS::QueuePolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "Allow-User-SendMessage",
+                            "Effect": "Allow",
+                            "Principal": "*",
+                            "Action": "SQS:*",
+                            "Resource": {
+                                "Fn::GetAtt": [
+                                    "Queue",
+                                    "Arn"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "Queues": [
+                    {
+                        "Ref": "Queue"
+                    }
+                ]
+            }
+        },
+        "AlarmTopic": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "Subscription": [
+                    {
+                        "Endpoint": {
+                            "Ref": "AlarmEmail"
+                        },
+                        "Protocol": "email"
+                    }
+                ]
+            }
+        },
+        "QueueDepthAlarm": {
+            "Type": "AWS::CloudWatch::Alarm",
+            "Properties": {
+                "AlarmDescription": "Alarm if queue depth grows too large",
+                "Namespace": "AWS/SQS",
+                "MetricName": "ApproximateNumberOfMessagesVisible",
+                "Dimensions": [
+                    {
+                        "Name": "QueueName",
+                        "Value": {
+                            "Fn::GetAtt": [
+                                "Queue",
+                                "QueueName"
+                            ]
+                        }
+                    }
+                ],
+                "Statistic": "Sum",
+                "Period": "300",
+                "EvaluationPeriods": "1",
+                "Threshold": {
+                    "Ref": "QueueDepth"
+                },
+                "ComparisonOperator": "GreaterThanThreshold",
+                "AlarmActions": [
+                    {
+                        "Ref": "AlarmTopic"
+                    }
+                ],
+                "InsufficientDataActions": [
+                    {
+                        "Ref": "AlarmTopic"
+                    }
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "QueueURL": {
+            "Description": "URL of newly created SQS Queue",
+            "Value": {
+                "Ref": "Queue"
+            }
+        },
+        "QueueARN": {
+            "Description": "ARN of newly created SQS Queue",
+            "Value": {
+                "Fn::GetAtt": [
+                    "Queue",
+                    "Arn"
+                ]
+            }
+        },
+        "QueueName": {
+            "Description": "Name newly created SQS Queue",
+            "Value": {
+                "Fn::GetAtt": [
+                    "Queue",
+                    "QueueName"
+                ]
+            }
+        }
+    }
+}

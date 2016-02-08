@@ -1,0 +1,177 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "",
+    "Parameters": {
+        "KeyPair": {
+            "Description": "AWS Key Pair",
+            "Type": "AWS::EC2::KeyPair::KeyName"
+        },
+        "VpcId": {
+            "Description": "VPC this is being deployed to",
+            "Type": "AWS::EC2::VPC::Id"
+        },
+        "SubnetId": {
+            "Description": "Subnet to bring up the server",
+            "Type": "AWS::EC2::Subnet::Id"
+        },
+        "SecurityGroupIds": {
+            "Description": "Subnet to bring up the server",
+            "Type": "AWS::EC2::SecurityGroup::Id"
+        },
+        "InstanceType": {
+            "Description": "WebServer EC2 instance type",
+            "Type": "String",
+            "Default": "t2.micro",
+            "AllowedValues": [
+                "t1.micro",
+                "t2.micro",
+                "t2.small",
+                "t2.medium",
+                "m1.small"
+            ],
+            "ConstraintDescription": "must be a valid EC2 instance type."
+        }
+    },
+    "Mappings": {
+        "AWSInstanceType2Arch": {
+            "t1.micro": {
+                "Arch": "PV64"
+            },
+            "t2.micro": {
+                "Arch": "HVM64"
+            },
+            "t2.small": {
+                "Arch": "HVM64"
+            },
+            "t2.medium": {
+                "Arch": "HVM64"
+            },
+            "m1.small": {
+                "Arch": "PV64"
+            }
+        },
+        "AWSRegionArch2AMI": {
+            "us-east-1": {
+                "PV64": "ami-e902508c",
+                "HVM64": "ami-ff02509a"
+            },
+            "us-west-2": {
+                "PV64": "ami-82e605b1",
+                "HVM64": "ami-8ee605bd"
+            },
+            "us-west-1": {
+                "PV64": "ami-138a4957",
+                "HVM64": "ami-198a495d"
+            },
+            "eu-west-1": {
+                "PV64": "ami-5b360a2c",
+                "HVM64": "ami-37360a40"
+            },
+            "eu-central-1": {
+                "PV64": "ami-48272b55",
+                "HVM64": "ami-46272b5b"
+            },
+            "ap-northeast-1": {
+                "PV64": "ami-362e4c36",
+                "HVM64": "ami-402e4c40"
+            },
+            "ap-southeast-1": {
+                "PV64": "ami-54170406",
+                "HVM64": "ami-42170410"
+            },
+            "ap-southeast-2": {
+                "PV64": "ami-776c264d",
+                "HVM64": "ami-6d6c2657"
+            },
+            "sa-east-1": {
+                "PV64": "ami-e148d9fc",
+                "HVM64": "ami-1f4bda02"
+            },
+            "cn-north-1": {
+                "PV64": "ami-5864f861",
+                "HVM64": "ami-a664f89f"
+            },
+            "us-gov-west-1": {
+                "PV64": "ami-f8bbd9db",
+                "HVM64": "ami-30b8da13"
+            }
+        }
+    },
+    "Resources": {
+        "BastionIP": {
+            "Type": "AWS::EC2::EIP",
+            "Properties": {
+                "InstanceId": {
+                    "Ref": "Bastion"
+                }
+            }
+        },
+        "Bastion": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "KeyName": {
+                    "Ref": "KeyPair"
+                },
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "AWSRegionArch2AMI",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        {
+                            "Fn::FindInMap": [
+                                "AWSInstanceType2Arch",
+                                {
+                                    "Ref": "InstanceType"
+                                },
+                                "Arch"
+                            ]
+                        }
+                    ]
+                },
+                "InstanceType": {
+                    "Ref": "InstanceType"
+                },
+                "SecurityGroupIds": [
+                    {
+                        "Ref": "SecurityGroupIds"
+                    }
+                ],
+                "SubnetId": {
+                    "Ref": "SubnetId"
+                },
+                "Monitoring": "false",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "Bastion"
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#cloud-config\n",
+                                "package_upgrade: true\n",
+                                "password: passw0rd\n",
+                                "chpasswd: { expire: False }\n",
+                                "ssh_pwauth: True\n",
+                                "users:\n",
+                                "  - default\n",
+                                "  - name: bastion\n",
+                                "    gecos: Bastion User\n",
+                                "    primary-group: bastion\n",
+                                "    passwd: $6$rounds=4096$xrTsFi2gmQTF$j6kKhS05SzfcaXByGnjz7dLowoDG1ZAGZ2T5Q7wDX2hFIWrahtgqAx4iHCZOeVrDDA6z.krl8fJn/MPF972zq1\n",
+                                "    sudo: ALL=(ALL) NOPASSWD:ALL\n",
+                                "    ssh-authorized-keys:\n",
+                                "      - ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEAsZ1sApkESHXPDR4WyaoRn7wlMsBgXLbdix6z/6eAPeis2bPSgsfKs2AVswgUkaSgI0paZ7L1UkAJjMGVPoAXm6WOMWMrWa+SvZ6ww59hwv9Ml2XQM511fb+FA6E7gtSCbuFoJZBD+AtrmgddB9A7890fNg4PD0+Dgl5M0D/CEUGrNveLSQqZGs7lJWVqzX0Bbf81LD4j9ZebVRK/6DVzoDnZeDOpjjBOlRrOzTlc8SzUTjokBypUD1egCl6C3FsHAgdembA4IAP/r9SEve8TxrUvy+rX2NQVRJVC9bQmz7S0HnwoiKkVqEpBTeOGqNIdNWwwPEyKgLTscMKtlT8ULw== id_rsa\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "Outputs": {}
+}

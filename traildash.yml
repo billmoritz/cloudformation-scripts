@@ -1,0 +1,70 @@
+traildash:
+  region: us-east-1
+  highlight-output: true
+  stacks:
+    network:
+      cf_template: templates/base-infrastructure-1l-2az.cform
+      depends:
+      params:
+        AZ1:
+          value: us-east-1b
+        AZ2:
+          value: us-east-1c
+        EnvironmentName:
+          value: Base
+        VpcCIDR:
+          value: 10.0.0.0/23
+        Subnet1CIDR:
+          value: 10.0.0.0/24
+        Subnet2CIDR:
+          value: 10.0.1.0/24
+    instance:
+      cf_template: templates/traildash-instance.cform
+      depends:
+        - network
+        - profile
+      params:
+        VpcId:
+          source: network
+          type: resource
+          variable: VPC
+        SubnetId:
+          source: network
+          type: resource
+          variable: Subnet1
+        Password:
+          value: TrailDash!
+        AssignEIP:
+          value: true
+        InstanceType:
+          value: t2.medium
+        SgCidr:
+          value: 0.0.0.0/0
+        IamInstanceProfile:
+          source: profile
+          type: resource
+          variable: TrailDashInstanceProfile
+        QueueURL:
+          source: queue
+          type: output
+          variable: QueueURL
+        S3Bucket:
+          source: profile
+          type: output
+          variable: S3Bucket
+    profile:
+      cf_template: templates/instance-profile-traildash.cform
+      depends:
+      params:
+        S3Bucket:
+          value: bmoritz-secure
+    queue:
+      cf_template: templates/sqs-with-alarm.cform
+      depends:
+      params:
+        AlarmEmail:
+          value: billmoritz@gmail.com
+        QueueName:
+          value: TrailDash
+        QueueDepth:
+          value: 100

@@ -1,0 +1,75 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Build an SQS Queue with Policy",
+    "Parameters": {
+        "QueueName": {
+            "Default": "SampleQueue",
+            "Description": "Name of the SQS queue",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "Queue": {
+            "Type": "AWS::SQS::Queue",
+            "Properties": {
+                "QueueName": {
+                    "Ref": "QueueName"
+                }
+            }
+        },
+        "QueuePolicy": {
+            "DependsOn": "Queue",
+            "Type": "AWS::SQS::QueuePolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "Allow-User-SendMessage",
+                            "Effect": "Allow",
+                            "Principal": "*",
+                            "Action": "SQS:*",
+                            "Resource": {
+                                "Fn::GetAtt": [
+                                    "Queue",
+                                    "Arn"
+                                ]
+                            }
+                        }
+                    ]
+                },
+                "Queues": [
+                    {
+                        "Ref": "Queue"
+                    }
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "QueueURL": {
+            "Description": "URL of newly created SQS Queue",
+            "Value": {
+                "Ref": "Queue"
+            }
+        },
+        "QueueARN": {
+            "Description": "ARN of newly created SQS Queue",
+            "Value": {
+                "Fn::GetAtt": [
+                    "Queue",
+                    "Arn"
+                ]
+            }
+        },
+        "QueueName": {
+            "Description": "Name newly created SQS Queue",
+            "Value": {
+                "Fn::GetAtt": [
+                    "Queue",
+                    "QueueName"
+                ]
+            }
+        }
+    }
+}

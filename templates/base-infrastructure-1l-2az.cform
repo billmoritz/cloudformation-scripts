@@ -1,0 +1,255 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Build a Multi-AZ Base Network",
+    "Parameters": {
+        "AZ1": {
+            "ConstraintDescription": "must be a valid EC2 Availability Zone",
+            "Type": "AWS::EC2::AvailabilityZone::Name",
+            "Description": "Set Availability Zone 1 to differ from Availability Zone 2"
+        },
+        "AZ2": {
+            "ConstraintDescription": "must be a valid EC2 Availability Zone",
+            "Type": "AWS::EC2::AvailabilityZone::Name",
+            "Description": "Set Availability Zone 2 to differ from Availability Zone 1"
+        },
+        "EnvironmentName": {
+            "Default": " Base",
+            "Type": "String",
+            "Description": "Name For The Environment"
+        },
+        "VpcCIDR": {
+            "Default": "10.0.0.0/23",
+            "Type": "String",
+            "Description": " VPC CIDR Block"
+        },
+        "Subnet1CIDR": {
+            "Default": "10.0.0.0/24",
+            "Type": "String",
+            "Description": " Subnet 1 CIDR Block"
+        },
+        "Subnet2CIDR": {
+            "Default": "10.0.1.0/24",
+            "Type": "String",
+            "Description": " Subnet 2 CIDR Block"
+        }
+    },
+    "Resources": {
+        "AttachGateway": {
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "InternetGatewayId": {
+                    "Ref": "InternetGateway"
+                }
+            },
+            "DependsOn": "InternetGateway"
+        },
+        "InternetGateway": {
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Value": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    {
+                                        "Ref": "EnvironmentName"
+                                    },
+                                    "Igw"
+                                ]
+                            ]
+                        },
+                        "Key": "Name"
+                    }
+                ]
+            }
+        },
+        "RouteTable1": {
+            "Type": "AWS::EC2::RouteTable",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "Tags": [
+                    {
+                        "Value": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    {
+                                        "Ref": "EnvironmentName"
+                                    },
+                                    "SubnetRt1"
+                                ]
+                            ]
+                        },
+                        "Key": "Name"
+                    }
+                ]
+            }
+        },
+        "DefaultRoute1": {
+            "Type": "AWS::EC2::Route",
+            "Properties": {
+                "RouteTableId": {
+                    "Ref": "RouteTable1"
+                },
+                "DestinationCidrBlock": "0.0.0.0/0",
+                "GatewayId": {
+                    "Ref": "InternetGateway"
+                }
+            }
+        },
+        "Subnet1": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Ref": "Subnet1CIDR"
+                },
+                "AvailabilityZone": {
+                    "Ref": "AZ1"
+                },
+                "Tags": [
+                    {
+                        "Value": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    {
+                                        "Ref": "EnvironmentName"
+                                    },
+                                    "Subnet1"
+                                ]
+                            ]
+                        },
+                        "Key": "Name"
+                    }
+                ]
+            }
+        },
+        "Subnet2": {
+            "Type": "AWS::EC2::Subnet",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "CidrBlock": {
+                    "Ref": "Subnet2CIDR"
+                },
+                "AvailabilityZone": {
+                    "Ref": "AZ2"
+                },
+                "Tags": [
+                    {
+                        "Value": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    {
+                                        "Ref": "EnvironmentName"
+                                    },
+                                    "Subnet2"
+                                ]
+                            ]
+                        },
+                        "Key": "Name"
+                    }
+                ]
+            }
+        },
+        "SubnetRouteTableAssociation1": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "Subnet1"
+                },
+                "RouteTableId": {
+                    "Ref": "RouteTable1"
+                }
+            }
+        },
+        "SubnetRouteTableAssociation2": {
+            "Type": "AWS::EC2::SubnetRouteTableAssociation",
+            "Properties": {
+                "SubnetId": {
+                    "Ref": "Subnet2"
+                },
+                "RouteTableId": {
+                    "Ref": "RouteTable1"
+                }
+            }
+        },
+        "VPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "VpcCIDR"
+                },
+                "EnableDnsHostnames": true,
+                "Tags": [
+                    {
+                        "Value": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    {
+                                        "Ref": "EnvironmentName"
+                                    },
+                                    "Vpc"
+                                ]
+                            ]
+                        },
+                        "Key": "Name"
+                    }
+                ],
+                "EnableDnsSupport": true
+            }
+        }
+    },
+    "Outputs": {
+        "RouteTable1": {
+            "Value": {
+                "Ref": "RouteTable1"
+            }
+        },
+        "RouteTable2": {
+            "Value": {
+                "Ref": "RouteTable2"
+            }
+        },
+        "SubnetId1": {
+            "Value": {
+                "Ref": "Subnet1"
+            }
+        },
+        "SubnetId2": {
+            "Value": {
+                "Ref": "Subnet2"
+            }
+        },
+        "RegionName": {
+            "Description": "Name of the stack as specified with the cfn-create-stack command.",
+            "Value": {
+                "Ref": "AWS::Region"
+            }
+        },
+        "StackName": {
+            "Description": "Name of the stack as specified with the cfn-create-stack command.",
+            "Value": {
+                "Ref": "AWS::StackName"
+            }
+        },
+        "VPCID": {
+            "Description": "VPC",
+            "Value": {
+                "Ref": "VPC"
+            }
+        }
+    }
+}

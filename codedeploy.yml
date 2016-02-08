@@ -1,0 +1,8 @@
+codedeploy:
+  region: us-east-1
+  highlight-output: true
+  stacks:
+    iam:
+      cf_template: templates/codedeploy-iam.cform
+      depends:
+      params:

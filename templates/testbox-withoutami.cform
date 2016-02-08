@@ -1,0 +1,195 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Build an EC2 Instance for testing",
+  "Parameters": {
+    "VpcId": {
+      "Description": "VPC the Subnet is in",
+      "Type": "AWS::EC2::VPC::Id"
+    },
+    "SubnetId": {
+      "Description": "Subnet to bring up the Testbox",
+      "Type": "AWS::EC2::Subnet::Id"
+    },
+    "AMI": {
+      "Description": "Ami to boot from",
+      "Type": "String"
+    },
+    "Password": {
+      "Description": "Password that is assigned to the Testbox ubuntu/ec2-user account",
+      "Type": "String",
+      "NoEcho": "true",
+      "MinLength": "8",
+      "MaxLength": "30",
+      "ConstraintDescription": "must be between 8-30 characters."
+    },
+    "AssignEIP": {
+      "Description": "Should the Testbox get and Elastic IP",
+      "Type": "String",
+      "Default": "False",
+      "AllowedValues": [
+        "True",
+        "False"
+      ]
+    },
+    "InstanceType": {
+      "Description": "Testbox EC2 instance type",
+      "Type": "String",
+      "Default": "t2.micro",
+      "AllowedValues": [
+        "t1.micro",
+        "t2.micro",
+        "t2.small",
+        "t2.medium",
+        "m1.small"
+      ],
+      "ConstraintDescription": "must be a valid EC2 instance type."
+    },
+    "SgCidr": {
+      "Description": " The IP address range that can be used to access to Testbox",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "0.0.0.0/0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    }
+  },
+  "Conditions": {
+    "CreateEIP": {
+      "Fn::Equals": [
+        {
+          "Ref": "AssignEIP"
+        },
+        "True"
+      ]
+    }
+  },
+  "Resources": {
+    "TestboxSG": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "Security Group for Testbox",
+        "VpcId": {
+          "Ref": "VpcId"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "CidrIp": {
+              "Ref": "SgCidr"
+            }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "80",
+            "ToPort": "80",
+            "CidrIp": {
+              "Ref": "SgCidr"
+            }
+          },
+          {
+            "IpProtocol": "icmp",
+            "FromPort": "-1",
+            "ToPort": "-1",
+            "CidrIp": {
+              "Ref": "SgCidr"
+            }
+          }
+        ]
+      }
+    },
+    "TestboxIP": {
+      "Condition": "CreateEIP",
+      "Type": "AWS::EC2::EIP",
+      "Properties": {
+        "InstanceId": {
+          "Ref": "Testbox"
+        }
+      }
+    },
+    "Testbox": {
+      "Type": "AWS::EC2::Instance",
+      "Properties": {
+        "ImageId": {
+          "Ref": "AMI"
+        },
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "SecurityGroupIds": [
+          {
+            "Ref": "TestboxSG"
+          }
+        ],
+        "SubnetId": {
+          "Ref": "SubnetId"
+        },
+        "Monitoring": "false",
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": {
+              "Ref": "AWS::StackName"
+            }
+          }
+        ],
+        "UserData": {
+          "Fn::Base64": {
+            "Fn::Join": [
+              "",
+              [
+                "#cloud-config\n",
+                "package_upgrade: true\n",
+                "password: ",
+                {
+                  "Ref": "Password"
+                },
+                "\n",
+                "chpasswd: { expire: False }\n",
+                "ssh_pwauth: True\n"
+              ]
+            ]
+          }
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "SSHPublic": {
+      "Description": "SSH command to connect to the instances",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "ssh ",
+            {
+              "Fn::GetAtt": [
+                "Testbox",
+                "PrivateIp"
+              ]
+            }
+          ]
+        ]
+      }
+    },
+    "SSHPrivate": {
+      "Description": "SSH command to connect to the instances",
+      "Value": {
+        "Fn::Join": [
+          "",
+          [
+            "ssh ",
+            {
+              "Fn::GetAtt": [
+                "Testbox",
+                "PublicIp"
+              ]
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

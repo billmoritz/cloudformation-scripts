@@ -1,0 +1,135 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Build an EC2 Instance Profile with profile needed for TrailDash",
+    "Parameters": {
+        "S3Bucket": {
+            "Description": "S3 Bucket that holds the Cloudtrail logs",
+            "Type": "String"
+        }
+    },
+    "Resources": {
+        "TrailDashRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "ec2.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "TrailDash",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "s3:ListBucket"
+                                    ],
+                                    "Resource": [
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::",
+                                                    {
+                                                        "Ref": "S3Bucket"
+                                                    }
+                                                ]
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "Effect": "Allow",
+                                    "Action": "s3:*",
+                                    "Resource": [
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::",
+                                                    {
+                                                        "Ref": "S3Bucket"
+                                                    }
+                                                ]
+                                            ]
+                                        },
+                                        {
+                                            "Fn::Join": [
+                                                "",
+                                                [
+                                                    "arn:aws:s3:::",
+                                                    {
+                                                        "Ref": "S3Bucket"
+                                                    },
+                                                    "/*"
+                                                ]
+                                            ]
+                                        }
+                                    ]
+                                },
+                                {
+                                    "Sid": "AllowSQS",
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "sqs:DeleteMessage",
+                                        "sqs:ReceiveMessage"
+                                    ],
+                                    "Resource": "*"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        },
+        "TrailDashInstanceProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/",
+                "Roles": [
+                    {
+                        "Ref": "TrailDashRole"
+                    }
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "InstanceProfileARN": {
+            "Description": "ARN of newly created Instance Profile",
+            "Value": {
+                "Fn::GetAtt": [
+                    "TrailDashInstanceProfile",
+                    "Arn"
+                ]
+            }
+        },
+        "InstanceProfileName": {
+            "Description": "Name of newly created Instance Profile",
+            "Value": {
+                "Ref": "TrailDashInstanceProfile"
+            }
+        },
+        "S3Bucket": {
+            "Description": "Name of S3 bucket referenced in the Instance Profile Policy",
+            "Value": {
+                "Ref": "S3Bucket"
+            }
+        }
+    }
+}

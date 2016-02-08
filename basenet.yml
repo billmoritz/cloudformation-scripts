@@ -1,0 +1,67 @@
+basenet:
+  region: us-east-1
+  highlight-output: true
+  stacks:
+    network:
+      cf_template: templates/base-infrastructure-2l-2az.cform
+      depends:
+      params:
+        AZ1:
+          value: us-east-1b
+        AZ2:
+          value: us-east-1c
+        EnvironmentName:
+          value: Base
+        VpcCIDR:
+          value: 10.0.4.0/22
+        Subnet1CIDR:
+          value: 10.0.4.0/24
+        Subnet2CIDR:
+          value: 10.0.5.0/24
+        Subnet3CIDR:
+          value: 10.0.6.0/24
+        Subnet4CIDR:
+          value: 10.0.7.0/24
+    nat:
+      cf_template: templates/nat-monitor.cform
+      depends:
+        - network
+      params:
+        KeyName:
+          value: psaccount-bmoritz
+        VPC:
+          source: network
+          type: resource
+          variable: VPC
+        VpcCidr:
+          source: network
+          type: parameter
+          variable: VpcCIDR
+        PublicSubnet1:
+          source: network
+          type: resource
+          variable: Subnet1
+        PublicSubnet2:
+          source: network
+          type: resource
+          variable: Subnet2
+        PrivateRouteTable1:
+          source: network
+          type: resource
+          variable: RouteTable2
+        PrivateRouteTable2:
+          source: network
+          type: resource
+          variable: RouteTable3
+        NATNodeInstanceType:
+          value: t1.micro
+        NumberOfPings:
+          value: 3
+        PingTimeout:
+          value: 1
+        WaitBetweenPings:
+          value: 2
+        WaitForInstanceStop:
+          value: 60
+        WaitForInstanceStart:
+          value: 300

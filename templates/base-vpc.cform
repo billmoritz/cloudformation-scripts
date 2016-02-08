@@ -1,0 +1,118 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Build a Base VPC",
+    "Parameters": {
+        "EnvironmentName": {
+            "Default": " Base",
+            "Type": "String",
+            "Description": "Name For The Environment"
+        },
+        "VpcCIDR": {
+            "Default": "10.0.0.0/23",
+            "Type": "String",
+            "Description": " VPC CIDR Block"
+        },
+        "CreateIgw": {
+            "Description": "Should an Internet Gateway be attached?",
+            "Default": "false",
+            "Type": "String",
+            "AllowedValues": [
+                "true",
+                "false"
+            ]
+        }
+    },
+    "Conditions": {
+        "CreateIgw": {
+            "Fn::Equals": [
+                {
+                    "Ref": "CreateIgw"
+                },
+                "true"
+            ]
+        }
+    },
+    "Resources": {
+        "AttachGateway": {
+            "Condition": "CreateIgw",
+            "Type": "AWS::EC2::VPCGatewayAttachment",
+            "Properties": {
+                "VpcId": {
+                    "Ref": "VPC"
+                },
+                "InternetGatewayId": {
+                    "Ref": "InternetGateway"
+                }
+            },
+            "DependsOn": "InternetGateway"
+        },
+        "InternetGateway": {
+            "Condition": "CreateIgw",
+            "Type": "AWS::EC2::InternetGateway",
+            "Properties": {
+                "Tags": [
+                    {
+                        "Value": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    {
+                                        "Ref": "EnvironmentName"
+                                    },
+                                    "Igw"
+                                ]
+                            ]
+                        },
+                        "Key": "Name"
+                    }
+                ]
+            }
+        },
+        "VPC": {
+            "Type": "AWS::EC2::VPC",
+            "Properties": {
+                "CidrBlock": {
+                    "Ref": "VpcCIDR"
+                },
+                "EnableDnsHostnames": true,
+                "Tags": [
+                    {
+                        "Value": {
+                            "Fn::Join": [
+                                "",
+                                [
+                                    {
+                                        "Ref": "EnvironmentName"
+                                    },
+                                    "Vpc"
+                                ]
+                            ]
+                        },
+                        "Key": "Name"
+                    }
+                ],
+                "EnableDnsSupport": true
+            }
+        }
+    },
+    "Outputs": {
+        "RegionName": {
+            "Description": "Name of the stack as specified with the cfn-create-stack command.",
+            "Value": {
+                "Ref": "AWS::Region"
+            }
+        },
+        "StackName": {
+            "Description": "Name of the stack as specified with the cfn-create-stack command.",
+            "Value": {
+                "Ref": "AWS::StackName"
+            }
+        },
+        "VPCID": {
+            "Description": "VPC",
+            "Value": {
+                "Ref": "VPC"
+            }
+        }
+    }
+}

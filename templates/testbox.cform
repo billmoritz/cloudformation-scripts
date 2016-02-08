@@ -1,0 +1,277 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Build an EC2 Instance for testing",
+    "Parameters": {
+        "VpcId": {
+            "Description": "VPC the Subnet is in",
+            "Type": "AWS::EC2::VPC::Id"
+        },
+        "SubnetId": {
+            "Description": "Subnet to bring up the Testbox",
+            "Type": "AWS::EC2::Subnet::Id"
+        },
+        "Password": {
+            "Description": "Password that is assigned to the Testbox ubuntu user",
+            "Type": "String",
+            "NoEcho": "true",
+            "MinLength": "8",
+            "MaxLength": "30",
+            "ConstraintDescription": "must be between 8-30 characters."
+        },
+        "AssignEIP": {
+            "Description": "Should the Testbox get and Elastic IP",
+            "Type": "String",
+            "Default": "False",
+            "AllowedValues": [
+                "True",
+                "False"
+            ]
+        },
+        "InstanceType": {
+            "Description": "Testbox EC2 instance type",
+            "Type": "String",
+            "Default": "t2.micro",
+            "AllowedValues": [
+                "t1.micro",
+                "t2.micro",
+                "t2.small",
+                "t2.medium",
+                "m1.small"
+            ],
+            "ConstraintDescription": "must be a valid EC2 instance type."
+        },
+        "SgCidr": {
+            "Description": " The IP address range that can be used to access to Testbox",
+            "Type": "String",
+            "MinLength": "9",
+            "MaxLength": "18",
+            "Default": "0.0.0.0/0",
+            "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+            "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+        }
+    },
+    "Conditions": {
+        "CreateEIP": {
+            "Fn::Equals": [
+                {
+                    "Ref": "AssignEIP"
+                },
+                "True"
+            ]
+        }
+    },
+    "Mappings": {
+        "AWSInstanceType2Arch": {
+            "t1.micro": {
+                "Arch": "PV64"
+            },
+            "t2.micro": {
+                "Arch": "HVM64"
+            },
+            "t2.small": {
+                "Arch": "HVM64"
+            },
+            "t2.medium": {
+                "Arch": "HVM64"
+            },
+            "m1.small": {
+                "Arch": "PV64"
+            }
+        },
+        "AWSRegionArch2AMI": {
+            "us-east-1": {
+                "PV64": "ami-4baddd21",
+                "HVM64": "ami-78abdb12"
+            },
+            "us-west-2": {
+                "PV64": "ami-5a3d293b",
+                "HVM64": "ami-6e37230f"
+            },
+            "us-west-1": {
+                "PV64": "ami-9ce18dfc",
+                "HVM64": "ami-0ce08c6c"
+            },
+            "eu-west-1": {
+                "PV64": "ami-f7e33c84",
+                "HVM64": "ami-92e03fe1"
+            },
+            "eu-central-1": {
+                "PV64": "ami-1b4a5977",
+                "HVM64": "ami-3c4b5850"
+            },
+            "ap-northeast-1": {
+                "PV64": "ami-180b2e76",
+                "HVM64": "ami-6214310c"
+            },
+            "ap-southeast-1": {
+                "PV64": "ami-f7bf7894",
+                "HVM64": "ami-f6bf7895"
+            },
+            "ap-southeast-2": {
+                "PV64": "ami-02d38c61",
+                "HVM64": "ami-acd58acf"
+            },
+            "sa-east-1": {
+                "PV64": "ami-1008b07c",
+                "HVM64": "ami-1308b07f"
+            },
+            "cn-north-1": {
+                "PV64": "ami-5864f861",
+                "HVM64": "ami-a664f89f"
+            },
+            "us-gov-west-1": {
+                "PV64": "ami-a8bad88b",
+                "HVM64": "ami-b0bad893"
+            }
+        }
+    },
+    "Resources": {
+        "TestboxSG": {
+            "Type": "AWS::EC2::SecurityGroup",
+            "Properties": {
+                "GroupDescription": "Security Group for Testbox",
+                "VpcId": {
+                    "Ref": "VpcId"
+                },
+                "SecurityGroupIngress": [
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "22",
+                        "ToPort": "22",
+                        "CidrIp": {
+                            "Ref": "SgCidr"
+                        }
+                    },
+                    {
+                        "IpProtocol": "tcp",
+                        "FromPort": "80",
+                        "ToPort": "80",
+                        "CidrIp": {
+                            "Ref": "SgCidr"
+                        }
+                    },
+                    {
+                        "IpProtocol": "icmp",
+                        "FromPort": "-1",
+                        "ToPort": "-1",
+                        "CidrIp": {
+                            "Ref": "SgCidr"
+                        }
+                    }
+                ]
+            }
+        },
+        "TestboxIP": {
+            "Condition": "CreateEIP",
+            "Type": "AWS::EC2::EIP",
+            "Properties": {
+                "InstanceId": {
+                    "Ref": "Testbox"
+                }
+            }
+        },
+        "Testbox": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "AWSRegionArch2AMI",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        {
+                            "Fn::FindInMap": [
+                                "AWSInstanceType2Arch",
+                                {
+                                    "Ref": "InstanceType"
+                                },
+                                "Arch"
+                            ]
+                        }
+                    ]
+                },
+                "InstanceType": {
+                    "Ref": "InstanceType"
+                },
+                "SecurityGroupIds": [
+                    {
+                        "Ref": "TestboxSG"
+                    }
+                ],
+                "SubnetId": {
+                    "Ref": "SubnetId"
+                },
+                "Monitoring": "false",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Ref": "AWS::StackName"
+                        }
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#cloud-config\n",
+                                "package_upgrade: true\n",
+                                "password: ",
+                                {
+                                    "Ref": "Password"
+                                },
+                                "\n",
+                                "chpasswd: { expire: False }\n",
+                                "ssh_pwauth: True\n",
+                                "apt_sources:\n",
+                                " - source: \"deb https://apt.dockerproject.org/repo ubuntu-wily main\"\n",
+                                "   keyid: 58118E89F3A912897C070ADBF76221572C52609D\n",
+                                "   filename: docker.list\n",
+                                "   keyserver: pgp.mit.edu\n",
+                                "packages:\n",
+                                " - docker-engine\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "SSHPublic": {
+            "Description": "SSH command to connect to the instances",
+            "Value": {
+                "Fn::Join": [
+                    "",
+                    [
+                        "ssh ubuntu@",
+                        {
+                            "Fn::GetAtt": [
+                                "Testbox",
+                                "PrivateIp"
+                            ]
+                        }
+                    ]
+                ]
+            }
+        },
+        "SSHPrivate": {
+            "Description": "SSH command to connect to the instances",
+            "Value": {
+                "Fn::Join": [
+                    "",
+                    [
+                        "ssh ubuntu@",
+                        {
+                            "Fn::GetAtt": [
+                                "Testbox",
+                                "PublicIp"
+                            ]
+                        }
+                    ]
+                ]
+            }
+        }
+    }
+}
